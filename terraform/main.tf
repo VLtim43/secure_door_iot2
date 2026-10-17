@@ -60,12 +60,12 @@ resource "aws_iot_policy" "door" {
       {
         Effect   = "Allow"
         Action   = ["iot:Publish", "iot:Receive"]
-        Resource = "arn:aws:iot:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:topic/secure-door/$${iot:Connection.Thing.ThingName}/*"
+        Resource = "arn:aws:iot:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:topic//test"
       },
       {
         Effect   = "Allow"
         Action   = "iot:Subscribe"
-        Resource = "arn:aws:iot:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:topicfilter/secure-door/$${iot:Connection.Thing.ThingName}/*"
+        Resource = "arn:aws:iot:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:topicfilter//test"
       }
     ]
   })

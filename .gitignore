@@ -4,5 +4,6 @@
 /terraform/*.tfstate.*
 /terraform/.terraform.tfstate.lock.info
 /build/
+/managed_components/
 /sdkconfig
 /sdkconfig.old

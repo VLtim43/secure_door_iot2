@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
+#include "driver/gpio.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
@@ -10,16 +12,24 @@
 #include "nvs_flash.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+#include "freertos/task.h"
 
 #include "secrets.h"
 
 static const char *TAG = "secure_door";
+// Change this if your board's test LED uses a different GPIO.
+#define TEST_LED_GPIO GPIO_NUM_2
 static EventGroupHandle_t wifi_events;
+static EventGroupHandle_t mqtt_events;
 static const EventBits_t WIFI_CONNECTED = BIT0;
+static const EventBits_t MQTT_CONNECTED = BIT0;
 
 static void wifi_event_handler(void *arg, esp_event_base_t base, int32_t event_id, void *data) {
   if (base == WIFI_EVENT && (event_id == WIFI_EVENT_STA_START || event_id == WIFI_EVENT_STA_DISCONNECTED)) {
     xEventGroupClearBits(wifi_events, WIFI_CONNECTED);
+    if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
+      gpio_set_level(TEST_LED_GPIO, 0);
+    }
     esp_wifi_connect();
     return;
   }
@@ -31,13 +41,21 @@ static void wifi_event_handler(void *arg, esp_event_base_t base, int32_t event_i
 
 static void mqtt_event_handler(void *arg, esp_event_base_t base, int32_t event_id, void *data) {
   if (event_id == MQTT_EVENT_CONNECTED) {
+    xEventGroupSetBits(mqtt_events, MQTT_CONNECTED);
+    gpio_set_level(TEST_LED_GPIO, 1);
     ESP_LOGI(TAG, "Connected to AWS IoT");
   } else if (event_id == MQTT_EVENT_DISCONNECTED) {
+    xEventGroupClearBits(mqtt_events, MQTT_CONNECTED);
+    gpio_set_level(TEST_LED_GPIO, 0);
     ESP_LOGW(TAG, "MQTT disconnected; reconnecting automatically");
   }
 }
 
 void app_main(void) {
+  ESP_ERROR_CHECK(gpio_reset_pin(TEST_LED_GPIO));
+  ESP_ERROR_CHECK(gpio_set_direction(TEST_LED_GPIO, GPIO_MODE_OUTPUT));
+  ESP_ERROR_CHECK(gpio_set_level(TEST_LED_GPIO, 0));
+
   esp_err_t err = nvs_flash_init();
   if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
     ESP_ERROR_CHECK(nvs_flash_erase());
@@ -83,6 +101,25 @@ void app_main(void) {
 
   esp_mqtt_client_handle_t mqtt = esp_mqtt_client_init(&mqtt_config);
   configASSERT(mqtt);
+  mqtt_events = xEventGroupCreate();
+  configASSERT(mqtt_events);
   ESP_ERROR_CHECK(esp_mqtt_client_register_event(mqtt, MQTT_EVENT_ANY, mqtt_event_handler, NULL));
   ESP_ERROR_CHECK(esp_mqtt_client_start(mqtt));
+
+  const char *topic = "/test";
+
+  while (1) {
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    if (!(xEventGroupGetBits(mqtt_events) & MQTT_CONNECTED)) {
+      continue;
+    }
+
+    char payload[32];
+    snprintf(payload, sizeof(payload), "%lld", (long long)time(NULL));
+    if (esp_mqtt_client_publish(mqtt, topic, payload, 0, 0, 0) < 0) {
+      ESP_LOGW(TAG, "Timestamp publish failed");
+    } else {
+      ESP_LOGI(TAG, "Published to %s: %s", topic, payload);
+    }
+  }
 }
