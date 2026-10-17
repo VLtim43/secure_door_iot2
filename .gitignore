@@ -1,0 +1,8 @@
+/core/secrets.h
+/terraform/.terraform/
+/terraform/*.tfstate
+/terraform/*.tfstate.*
+/terraform/.terraform.tfstate.lock.info
+/build/
+/sdkconfig
+/sdkconfig.old

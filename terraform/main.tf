@@ -13,7 +13,7 @@ provider "aws" {
 
 variable "aws_region" {
   type    = string
-  default = "eu-west-1"
+  default = "us-east-1"
 }
 
 variable "thing_name" {
@@ -89,4 +89,3 @@ output "private_key" {
   value     = aws_iot_certificate.door.private_key
   sensitive = true
 }
-
