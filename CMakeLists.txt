@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
 
-set(EXTRA_COMPONENT_DIRS "core")
+set(EXTRA_COMPONENT_DIRS "firmware")
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(secure_door_iot2)

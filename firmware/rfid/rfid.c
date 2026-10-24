@@ -28,6 +28,13 @@ static rc522_spi_config_t driver_config = {
 static void on_picc_state_changed(void* arg, esp_event_base_t base,
                                   int32_t event_id, void* data) {
   rc522_picc_state_changed_event_t* event = data;
+  if (event->picc->state == RC522_PICC_STATE_IDLE &&
+      event->old_state >= RC522_PICC_STATE_ACTIVE) {
+    rgb_led_set_color(RGB_LED_COLOR_OFF);
+    ESP_LOGI(TAG, "Card removed");
+    return;
+  }
+
   if (event->picc->state != RC522_PICC_STATE_ACTIVE) {
     return;
   }
