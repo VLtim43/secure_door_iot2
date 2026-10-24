@@ -1,5 +1,6 @@
 {
     "idf.currentSetup": "/home/zara/.espressif/v6.1/esp-idf",
     "idf.flashType": "UART",
+    "idf.buildPath": "${workspaceFolder}/build",
     "idf.port": "/dev/ttyUSB0"
 }
