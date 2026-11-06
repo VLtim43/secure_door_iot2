@@ -1,7 +1,7 @@
 #include "rfid.h"
 
 #include "config/pins.h"
-#include "display/rgb_led.h"
+#include "display/led/rgb_led.h"
 #include "driver/rc522_spi.h"
 #include "esp_log.h"
 #include "rc522.h"

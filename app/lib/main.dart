@@ -1,121 +1,161 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const MyApp());
+import 'auth_method.dart';
+import 'logs/logs_screen.dart';
+import 'settings/settings_screen.dart';
+import 'unlock/unlock_screen.dart';
+
+void main() => runApp(const DoorApp());
+
+class DoorApp extends StatefulWidget {
+  const DoorApp({super.key});
+
+  @override
+  State<DoorApp> createState() => _DoorAppState();
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class _DoorAppState extends State<DoorApp> {
+  int _page = 0;
+  final Set<AuthMethod> _enabledMethods = {AuthMethod.rfid};
+  final Set<AuthMethod> _completedMethods = {};
+  Timer? _timer;
+  DateTime? _deadline;
+  int _remainingSeconds = 60;
 
-  // This widget is the root of your application.
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
+  void _stopTimer() {
+    _timer?.cancel();
+    _timer = null;
+    _deadline = null;
+    _remainingSeconds = 60;
   }
-}
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
+  void _resetProgress() {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _completedMethods.clear();
+      _stopTimer();
+    });
+  }
+
+  void _tick() {
+    final deadline = _deadline;
+    if (deadline == null) return;
+
+    final millisecondsLeft = deadline.difference(DateTime.now()).inMilliseconds;
+    if (millisecondsLeft <= 0) {
+      _resetProgress();
+      return;
+    }
+
+    setState(() => _remainingSeconds = (millisecondsLeft / 1000).ceil());
+  }
+
+  void _setMethod(AuthMethod method, bool enabled) {
+    if (!enabled &&
+        _enabledMethods.length == 1 &&
+        _enabledMethods.contains(method)) {
+      return;
+    }
+
+    setState(() {
+      if (enabled) {
+        _enabledMethods.add(method);
+      } else {
+        _enabledMethods.remove(method);
+        _completedMethods.remove(method);
+        if (_completedMethods.isEmpty) _stopTimer();
+      }
+    });
+  }
+
+  void _approveMethod(AuthMethod method) {
+    if (!_enabledMethods.contains(method)) return;
+    if (_deadline != null && !DateTime.now().isBefore(_deadline!)) {
+      _resetProgress();
+    }
+    setState(() {
+      if (_completedMethods.isEmpty) {
+        _deadline = DateTime.now().add(const Duration(minutes: 1));
+        _remainingSeconds = 60;
+        _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+      }
+      _completedMethods.add(method);
     });
   }
 
   @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+    const blue = Color(0xFF02569B);
+    const accent = Color(0xFF13B9FD);
+    final colors = ColorScheme.fromSeed(seedColor: blue).copyWith(
+      primary: blue,
+      secondary: accent,
+      surface: const Color(0xFFF3F9FD),
+    );
+
+    return MaterialApp(
+      title: 'Secure Door',
+      theme: ThemeData(
+        colorScheme: colors,
+        useMaterial3: true,
+        scaffoldBackgroundColor: colors.surface,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: blue,
+          foregroundColor: Colors.white,
+          centerTitle: false,
+        ),
+        cardTheme: CardThemeData(
+          color: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFFD9EBF7)),
+          ),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: Colors.white,
+          indicatorColor: const Color(0xFFBCEEFF),
+          iconTheme: WidgetStateProperty.resolveWith((states) {
+            return IconThemeData(
+              color: states.contains(WidgetState.selected)
+                  ? blue
+                  : const Color(0xFF607D91),
+            );
+          }),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+      home: Scaffold(
+        appBar: AppBar(title: const Text('Secure Door · Demo')),
+        body: switch (_page) {
+          0 => const LogsScreen(),
+          1 => SettingsScreen(
+            enabledMethods: _enabledMethods,
+            onMethodChanged: _setMethod,
+          ),
+          _ => UnlockScreen(
+            enabledMethods: _enabledMethods,
+            completedMethods: _completedMethods,
+            remainingSeconds: _remainingSeconds,
+            onApprove: _approveMethod,
+            onReset: _resetProgress,
+          ),
+        },
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _page,
+          onDestinationSelected: (index) => setState(() => _page = index),
+          destinations: const [
+            NavigationDestination(icon: Icon(Icons.history), label: 'Logs'),
+            NavigationDestination(icon: Icon(Icons.tune), label: 'Settings'),
+            NavigationDestination(icon: Icon(Icons.lock_open), label: 'Unlock'),
+          ],
+        ),
       ),
     );
   }
