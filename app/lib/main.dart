@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'auth_method.dart';
 import 'logs/logs_screen.dart';
@@ -17,12 +18,59 @@ class DoorApp extends StatefulWidget {
 }
 
 class _DoorAppState extends State<DoorApp> {
+  static const _methodsKey = 'enabled_auth_methods';
+  final _preferences = SharedPreferencesAsync();
   int _page = 0;
-  final Set<AuthMethod> _enabledMethods = {AuthMethod.rfid};
+  bool _settingsLoaded = false;
+  final Set<AuthMethod> _enabledMethods = {AuthMethod.biometric};
   final Set<AuthMethod> _completedMethods = {};
   Timer? _timer;
   DateTime? _deadline;
   int _remainingSeconds = 60;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMethods();
+  }
+
+  Future<void> _loadMethods() async {
+    try {
+      final saved = await _preferences.getStringList(_methodsKey);
+      if (!mounted) return;
+      setState(() {
+        if (saved != null) {
+          final methods = AuthMethod.values.where(
+            (method) => saved.contains(method.name),
+          );
+          _enabledMethods
+            ..clear()
+            ..addAll(methods);
+          if (_enabledMethods.isEmpty) {
+            _enabledMethods.add(AuthMethod.biometric);
+          }
+        }
+        _settingsLoaded = true;
+      });
+    } on Exception {
+      if (!mounted) return;
+      setState(() => _settingsLoaded = true);
+    }
+  }
+
+  Future<void> _saveMethods() async {
+    try {
+      await _preferences.setStringList(
+        _methodsKey,
+        _enabledMethods.map((method) => method.name).toList(),
+      );
+    } on Exception {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not save settings on this phone.')),
+      );
+    }
+  }
 
   void _stopTimer() {
     _timer?.cancel();
@@ -67,6 +115,7 @@ class _DoorAppState extends State<DoorApp> {
         if (_completedMethods.isEmpty) _stopTimer();
       }
     });
+    unawaited(_saveMethods());
   }
 
   void _approveMethod(AuthMethod method) {
@@ -133,20 +182,22 @@ class _DoorAppState extends State<DoorApp> {
       ),
       home: Scaffold(
         appBar: AppBar(title: const Text('Secure Door · Demo')),
-        body: switch (_page) {
-          0 => const LogsScreen(),
-          1 => SettingsScreen(
-            enabledMethods: _enabledMethods,
-            onMethodChanged: _setMethod,
-          ),
-          _ => UnlockScreen(
-            enabledMethods: _enabledMethods,
-            completedMethods: _completedMethods,
-            remainingSeconds: _remainingSeconds,
-            onApprove: _approveMethod,
-            onReset: _resetProgress,
-          ),
-        },
+        body: !_settingsLoaded
+            ? const Center(child: CircularProgressIndicator())
+            : switch (_page) {
+                0 => const LogsScreen(),
+                1 => SettingsScreen(
+                  enabledMethods: _enabledMethods,
+                  onMethodChanged: _setMethod,
+                ),
+                _ => UnlockScreen(
+                  enabledMethods: _enabledMethods,
+                  completedMethods: _completedMethods,
+                  remainingSeconds: _remainingSeconds,
+                  onApprove: _approveMethod,
+                  onReset: _resetProgress,
+                ),
+              },
         bottomNavigationBar: NavigationBar(
           selectedIndex: _page,
           onDestinationSelected: (index) => setState(() => _page = index),

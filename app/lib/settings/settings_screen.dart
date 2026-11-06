@@ -20,7 +20,7 @@ class SettingsScreen extends StatelessWidget {
         Text('Door settings', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 4),
         const Text(
-          'Enable methods for this door. Changes are local preview only.',
+          'Enable phone methods for this door. Saved on this phone only.',
         ),
         const SizedBox(height: 16),
         for (final method in AuthMethod.values)

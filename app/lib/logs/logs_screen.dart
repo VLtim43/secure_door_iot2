@@ -14,17 +14,17 @@ class LogsScreen extends StatelessWidget {
         const SizedBox(height: 16),
         const _LogEntry(
           time: 'Today · 09:41',
-          method: 'RFID · Admin card',
+          method: 'Phone biometric · Admin',
           allowed: true,
         ),
         const _LogEntry(
           time: 'Yesterday · 18:22',
-          method: 'RFID · Unknown card',
+          method: 'PIN · Incorrect code',
           allowed: false,
         ),
         const _LogEntry(
           time: 'Yesterday · 08:15',
-          method: 'RFID · Admin card',
+          method: 'TOTP · Admin',
           allowed: true,
         ),
       ],

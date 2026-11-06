@@ -14,7 +14,6 @@
 static const char* TAG = "IR_REMOTE";
 
 enum {
-  IR_COMMAND_COOLDOWN_MS = 250,
   IR_RESOLUTION_HZ = 1000000,
   IR_SYMBOL_BUFFER_SIZE = 128,
   IR_NEC_LEADER_HIGH_US = 9000,
@@ -32,6 +31,21 @@ typedef struct {
 } ir_rx_event_t;
 
 static rmt_symbol_word_t s_ir_symbols[IR_SYMBOL_BUFFER_SIZE];
+
+static int ir_remote_digit(uint32_t code) {
+  static const uint32_t digit_codes[] = {
+      IR_CODE_0, IR_CODE_1, IR_CODE_2, IR_CODE_3, IR_CODE_4,
+      IR_CODE_5, IR_CODE_6, IR_CODE_7, IR_CODE_8, IR_CODE_9,
+  };
+
+  for (int digit = 0; digit < 10; digit++) {
+    if (code == digit_codes[digit]) {
+      return digit;
+    }
+  }
+
+  return -1;
+}
 
 // NEC timings vary slightly in practice, so decoding uses tolerance windows.
 static bool approx_equal(uint32_t value, uint32_t target, uint32_t tolerance) {
@@ -94,59 +108,6 @@ static bool ir_remote_parse_nec(const rmt_symbol_word_t* symbols,
   return true;
 }
 
-static void ir_remote_log_symbols(const rmt_symbol_word_t* symbols,
-                                  size_t num_symbols) {
-  size_t preview_count = num_symbols < 6 ? num_symbols : 6;
-
-  ESP_LOGI(TAG, "raw frame with %u symbols", (unsigned)num_symbols);
-  for (size_t i = 0; i < preview_count; i++) {
-    ESP_LOGI(TAG, "sym[%u] l0=%u d0=%u l1=%u d1=%u", (unsigned)i,
-             symbols[i].level0, symbols[i].duration0, symbols[i].level1,
-             symbols[i].duration1);
-  }
-}
-
-static const char* ir_remote_command_name(uint32_t raw_code) {
-  switch (raw_code) {
-    case IR_CODE_1:
-      return "1";
-    case IR_CODE_2:
-      return "2";
-    case IR_CODE_3:
-      return "3";
-    case IR_CODE_4:
-      return "4";
-    case IR_CODE_5:
-      return "5";
-    case IR_CODE_6:
-      return "6";
-    case IR_CODE_7:
-      return "7";
-    case IR_CODE_8:
-      return "8";
-    case IR_CODE_9:
-      return "9";
-    case IR_CODE_0:
-      return "0";
-    case IR_CODE_STAR:
-      return "STAR";
-    case IR_CODE_HASH:
-      return "HASH";
-    case IR_CODE_UP:
-      return "UP";
-    case IR_CODE_LEFT:
-      return "LEFT";
-    case IR_CODE_DOWN:
-      return "DOWN";
-    case IR_CODE_RIGHT:
-      return "RIGHT";
-    case IR_CODE_OK:
-      return "OK";
-    default:
-      return NULL;
-  }
-}
-
 static void ir_remote_task(void* arg) {
   (void)arg;
 
@@ -176,10 +137,6 @@ static void ir_remote_task(void* arg) {
                                                   rx_queue));
   ESP_ERROR_CHECK(rmt_enable(rx_channel));
 
-  ESP_LOGI(TAG, "listening on GPIO%d", IR_RECEIVER_GPIO);
-
-  TickType_t last_command_tick = 0;
-  bool have_last_command = false;
   while (true) {
     ir_rx_event_t event;
     uint32_t raw_code = 0;
@@ -191,39 +148,17 @@ static void ir_remote_task(void* arg) {
     }
 
     if (!ir_remote_parse_nec(s_ir_symbols, event.num_symbols, &raw_code)) {
-      ir_remote_log_symbols(s_ir_symbols, event.num_symbols);
       continue;
     }
 
-    const char* command_name = ir_remote_command_name(raw_code);
-    uint8_t address = raw_code & 0xFF;
-    uint8_t address_inv = (raw_code >> 8) & 0xFF;
-    uint8_t command = (raw_code >> 16) & 0xFF;
-    uint8_t command_inv = (raw_code >> 24) & 0xFF;
-
-    if (command_name == NULL) {
-      ESP_LOGI(TAG,
-               "NEC code=0x%08lX addr=0x%02X addr_inv=0x%02X cmd=0x%02X "
-               "cmd_inv=0x%02X",
-               (unsigned long)raw_code, address, address_inv, command,
-               command_inv);
-      continue;
+    int digit = ir_remote_digit(raw_code);
+    if (digit >= 0) {
+      ESP_LOGI(TAG, "code: 0x%08lX, number: %d", (unsigned long)raw_code,
+               digit);
+    } else {
+      ESP_LOGI(TAG, "code: 0x%08lX, number: unknown",
+               (unsigned long)raw_code);
     }
-
-    TickType_t now = xTaskGetTickCount();
-    // Drop near-duplicate repeats from one button hold.
-    if (have_last_command &&
-        (now - last_command_tick) < pdMS_TO_TICKS(IR_COMMAND_COOLDOWN_MS)) {
-      continue;
-    }
-
-    last_command_tick = now;
-    have_last_command = true;
-    ESP_LOGI(TAG,
-             "Button=%s NEC code=0x%08lX addr=0x%02X addr_inv=0x%02X "
-             "cmd=0x%02X cmd_inv=0x%02X",
-             command_name, (unsigned long)raw_code, address, address_inv,
-             command, command_inv);
   }
 }
 

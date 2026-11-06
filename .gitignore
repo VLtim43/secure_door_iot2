@@ -1,9 +1,9 @@
-/firmware/main/secrets.h
+/core/main/secrets.h
 /terraform/.terraform/
 /terraform/*.tfstate
 /terraform/*.tfstate.*
 /terraform/.terraform.tfstate.lock.info
-/firmware/build/
-/firmware/managed_components/
-/firmware/sdkconfig
-/firmware/sdkconfig.old
+/core/build/
+/core/managed_components/
+/core/sdkconfig
+/core/sdkconfig.old

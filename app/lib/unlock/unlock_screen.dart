@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../auth_method.dart';
+import 'totp/totp_sheet.dart';
 
 class UnlockScreen extends StatelessWidget {
   const UnlockScreen({
@@ -21,6 +22,21 @@ class UnlockScreen extends StatelessWidget {
 
   void _openMethod(BuildContext context, AuthMethod method) {
     final approved = completedMethods.contains(method);
+    if (method == AuthMethod.totp) {
+      showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) => TotpSheet(
+          approved: approved,
+          onApprove: () {
+            onApprove(method);
+            Navigator.pop(sheetContext);
+          },
+        ),
+      );
+      return;
+    }
+
     var checking = false;
 
     showModalBottomSheet<void>(

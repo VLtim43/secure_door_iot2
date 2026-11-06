@@ -1,7 +1,10 @@
 {
     "folders": [
-        { "path": "firmware" },
-        { "path": "backend" },
+        { "path": "core" },
+        { "path": "app" },
         { "path": "terraform" }
-    ]
+    ],
+    "extensions": {
+        "recommendations": ["espressif.esp-idf-extension"]
+    }
 }
