@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
 
 import '../auth_method.dart';
 
@@ -20,42 +21,84 @@ class UnlockScreen extends StatelessWidget {
 
   void _openMethod(BuildContext context, AuthMethod method) {
     final approved = completedMethods.contains(method);
+    var checking = false;
 
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Icon(
-                method.icon,
-                size: 40,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                method.label,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                approved ? 'This step is approved for this demo.' : 'Demo step only · No verification or door command is sent.',
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: approved
-                    ? null
-                    : () {
-                        onApprove(method);
-                        Navigator.pop(sheetContext);
-                      },
-                child: Text(approved ? 'Approved' : 'Approve (demo)'),
-              ),
-            ],
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Icon(
+                  method.icon,
+                  size: 40,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  method.label,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  approved
+                      ? 'This step is approved for this demo.'
+                      : method == AuthMethod.biometric
+                      ? 'Verify with your phone biometrics. No door command is sent.'
+                      : 'Demo step only · No verification or door command is sent.',
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: approved || checking
+                      ? null
+                      : () async {
+                          if (method == AuthMethod.biometric) {
+                            setSheetState(() => checking = true);
+                            try {
+                              final verified = await LocalAuthentication()
+                                  .authenticate(
+                                    localizedReason:
+                                        'Verify to approve the biometric step',
+                                    biometricOnly: true,
+                                  );
+                              if (!sheetContext.mounted || !verified) return;
+                            } on Exception {
+                              if (!sheetContext.mounted) return;
+                              ScaffoldMessenger.of(sheetContext).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Biometrics unavailable. Check your phone settings.',
+                                  ),
+                                ),
+                              );
+                              return;
+                            } finally {
+                              if (sheetContext.mounted) {
+                                setSheetState(() => checking = false);
+                              }
+                            }
+                          }
+                          if (!sheetContext.mounted) return;
+                          onApprove(method);
+                          Navigator.pop(sheetContext);
+                        },
+                  child: Text(
+                    approved
+                        ? 'Approved'
+                        : checking
+                        ? 'Verifying…'
+                        : method == AuthMethod.biometric
+                        ? 'Verify biometrics'
+                        : 'Approve (demo)',
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
