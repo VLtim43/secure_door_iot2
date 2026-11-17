@@ -43,6 +43,11 @@ resource "aws_iot_policy" "door" {
       },
       {
         Effect   = "Allow"
+        Action   = "iot:Publish"
+        Resource = "arn:aws:iot:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:topic/doors/${var.thing_name}/card-read"
+      },
+      {
+        Effect   = "Allow"
         Action   = "iot:Subscribe"
         Resource = "arn:aws:iot:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:topicfilter//test"
       }

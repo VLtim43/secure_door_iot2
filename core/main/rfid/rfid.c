@@ -4,6 +4,7 @@
 #include "display/led/rgb_led.h"
 #include "driver/rc522_spi.h"
 #include "esp_log.h"
+#include "mqtt/mqtt_connect.h"
 #include "rc522.h"
 #include "rc522_picc.h"
 
@@ -42,7 +43,10 @@ static void on_picc_state_changed(void* arg, esp_event_base_t base,
   char uid[RC522_PICC_UID_STR_BUFFER_SIZE_MAX];
   if (rc522_picc_uid_to_str(&event->picc->uid, uid, sizeof(uid)) == ESP_OK) {
     ESP_LOGI(TAG, "Card UID: %s", uid);
-    rgb_led_set_color(RGB_LED_COLOR_GREEN);
+    if (mqtt_publish_card_uid(uid) < 0) {
+      ESP_LOGW(TAG, "Card read not queued (MQTT offline or outbox full)");
+    }
+    rgb_led_set_color(RGB_LED_COLOR_BLUE);
   }
 }
 

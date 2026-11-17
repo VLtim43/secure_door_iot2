@@ -23,6 +23,7 @@ static const gpio_num_t STATUS_LED_GPIO = GPIO_NUM_2;
 
 static EventGroupHandle_t wifi_events;
 static EventGroupHandle_t mqtt_events;
+static esp_mqtt_client_handle_t client;
 static const EventBits_t WIFI_CONNECTED = BIT0;
 static const EventBits_t MQTT_CONNECTED = BIT0;
 
@@ -146,7 +147,7 @@ void mqtt_start(void) {
       .credentials.authentication.certificate = DEVICE_CERT,
       .credentials.authentication.key = PRIVATE_KEY,
   };
-  esp_mqtt_client_handle_t client = esp_mqtt_client_init(&config);
+  client = esp_mqtt_client_init(&config);
   configASSERT(client);
 
   mqtt_events = xEventGroupCreate();
@@ -162,4 +163,23 @@ void mqtt_start(void) {
 
 bool mqtt_is_connected(void) {
   return mqtt_events && (xEventGroupGetBits(mqtt_events) & MQTT_CONNECTED);
+}
+
+int mqtt_publish_card_uid(const char* uid) {
+  if (!client || !mqtt_is_connected() || !uid) {
+    return -1;
+  }
+
+  char topic[96];
+  char payload[96];
+  int topic_len = snprintf(topic, sizeof(topic), "doors/%s/card-read", THING_NAME);
+  int payload_len = snprintf(payload, sizeof(payload), "{\"uid\":\"%s\"}", uid);
+  if (topic_len < 0 || (size_t)topic_len >= sizeof(topic) ||
+      payload_len < 0 || (size_t)payload_len >= sizeof(payload)) {
+    ESP_LOGW(TAG, "Card topic or payload too long");
+    return -1;
+  }
+
+  // Queue a QoS 1 event without blocking the RFID scanner on network I/O.
+  return esp_mqtt_client_enqueue(client, topic, payload, payload_len, 1, 0, 0);
 }
