@@ -7,3 +7,4 @@
 /core/managed_components/
 /core/sdkconfig
 /core/sdkconfig.old
+/backend/build/
