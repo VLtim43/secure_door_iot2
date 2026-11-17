@@ -39,6 +39,7 @@ func main() {
 		}
 
 		decision := "no"
+
 		if card.UID == "1234567" {
 			decision = "yes"
 		}
