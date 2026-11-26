@@ -12,5 +12,6 @@
 // IR receiver output
 #define IR_RECEIVER_GPIO 27
 
+// OLED
 #define OLED_I2C_SDA_GPIO 21
 #define OLED_I2C_SCL_GPIO 22

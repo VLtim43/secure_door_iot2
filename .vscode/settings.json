@@ -1,3 +1,8 @@
 {
-    "cmake.sourceDirectory": "${workspaceFolder}/core"
+    "cmake.sourceDirectory": "${workspaceFolder}/core",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/core/build/compile_commands.json",
+    "C_Cpp.default.includePath": [
+        "${default}",
+        "${workspaceFolder}/core/components/qrcodegen/include"
+    ]
 }

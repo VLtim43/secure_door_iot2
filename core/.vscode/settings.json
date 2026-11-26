@@ -1,6 +1,12 @@
 {
     "idf.extensionActivationMode": "always",
     "idf.buildPath": "${workspaceFolder}/build",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+    "C_Cpp.default.includePath": [
+        "${default}",
+        "${workspaceFolder}/components/qrcodegen/include"
+    ],
     "idf.flashType": "UART",
-    "idf.port": "/dev/ttyUSB0"
+    "idf.port": "/dev/ttyUSB0",
+    "idf.currentSetup": "/home/zara/.espressif/v6.1/esp-idf"
 }
